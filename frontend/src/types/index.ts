@@ -6,6 +6,11 @@ export enum UserRole {
   PARENT = 'parent',
 }
 
+export enum StudentGender {
+  MALE = 'male',
+  FEMALE = 'female',
+}
+
 export interface User {
   id: number
   email: string
@@ -16,6 +21,11 @@ export interface User {
   is_verified: boolean
   avatar_url?: string
   phone?: string
+  gender?: StudentGender
+  date_of_birth?: string
+  school_name?: string
+  class_number?: number
+  class_letter?: string
   created_at: string
   last_login?: string
 }
@@ -31,7 +41,12 @@ export interface RegisterRequest {
   full_name: string
   password: string
   role: UserRole
-  phone?: string
+  phone: string
+  gender: StudentGender
+  date_of_birth: string
+  school_name: string
+  class_number: number
+  class_letter: string
 }
 
 export interface TokenResponse {
@@ -195,5 +210,12 @@ export interface TestResultListItem {
   completed_at: string
   attempt_number: number
   pending_answers_count: number
+}
+
+// Settings
+export interface GradeSettings {
+  grade3_min: number
+  grade4_min: number
+  grade5_min: number
 }
 

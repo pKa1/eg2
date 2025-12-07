@@ -94,6 +94,11 @@ async def create_user(
         hashed_password=get_password_hash(user_data.password),
         role=user_data.role,
         phone=user_data.phone,
+        gender=user_data.gender,
+        date_of_birth=user_data.date_of_birth,
+        school_name=user_data.school_name,
+        class_number=user_data.class_number,
+        class_letter=user_data.class_letter,
         is_verified=True,
     )
     
@@ -102,6 +107,24 @@ async def create_user(
     await db.refresh(new_user)
     
     return new_user
+
+
+@router.post("/verify-all", status_code=status.HTTP_200_OK)
+async def verify_all_users(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Mark all pending users as verified (admin only)."""
+
+    result = await db.execute(select(User).where(User.is_verified.is_(False)))
+    users_to_verify = result.scalars().all()
+
+    for user in users_to_verify:
+        user.is_verified = True
+
+    await db.commit()
+
+    return {"updated": len(users_to_verify)}
 
 
 @router.patch("/{user_id}", response_model=UserResponse)

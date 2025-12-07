@@ -5,11 +5,13 @@ import { useNavigate } from 'react-router-dom'
 import { testService } from '@/services/testService'
 import { Test, QuestionType, TestStatus } from '@/types'
 import { Plus, Trash2, Save } from 'lucide-react'
+import MathInput from '@/components/MathInput'
+import MathText from '@/components/MathText'
 
 export default function CreateTestPage() {
   const navigate = useNavigate()
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm({
+  const { register, control, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm({
     defaultValues: {
       title: '',
       description: '',
@@ -40,6 +42,9 @@ export default function CreateTestPage() {
     control,
     name: 'questions',
   })
+
+  const [formulaTarget, setFormulaTarget] = useState<{ path: string; base: string } | null>(null)
+  const [formulaValue, setFormulaValue] = useState<string>('')
 
   const createTestMutation = useMutation({
     mutationFn: testService.createTest,
@@ -200,7 +205,23 @@ export default function CreateTestPage() {
     });
   }
 
+  const openFormulaModal = (path: string) => {
+    const current = getValues(path as any) || ''
+    setFormulaTarget({ path, base: current })
+    setFormulaValue('')
+  }
+
+  const handleInsertFormula = () => {
+    if (!formulaTarget) return
+    const current = getValues(formulaTarget.path as any) || ''
+    const next = [current, formulaValue].filter(Boolean).join(' ').trim()
+    setValue(formulaTarget.path as any, next, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+    setFormulaTarget(null)
+    setFormulaValue('')
+  }
+
   return (
+    <>
     <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="text-3xl font-bold text-gray-900">Создать новый тест</h1>
 
@@ -363,13 +384,32 @@ export default function CreateTestPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="label">Текст вопроса *</label>
-                    <textarea
-                      {...register(`questions.${index}.question_text`, {
-                        required: 'Текст вопроса обязателен',
-                      })}
-                      className="input"
-                      rows={2}
-                    />
+                    <div className="space-y-2">
+                      <textarea
+                        {...register(`questions.${index}.question_text`, {
+                          required: 'Текст вопроса обязателен',
+                        })}
+                        className="input"
+                        rows={2}
+                        placeholder="Введите текст вопроса. Формулы можно вставить через кнопку ниже."
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => openFormulaModal(`questions.${index}.question_text`)}
+                        >
+                          Вставить формулу
+                        </button>
+                        <span className="text-xs text-gray-500">Формула добавится в конец текста.</span>
+                      </div>
+                      <div className="mt-2 text-sm text-gray-600">
+                        Предпросмотр: <MathText text={watch(`questions.${index}.question_text`) || ''} />
+                      </div>
+                      {errors?.questions?.[index]?.question_text && (
+                        <p className="text-sm text-red-600">{(errors as any).questions?.[index]?.question_text?.message}</p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -449,11 +489,26 @@ export default function CreateTestPage() {
                                   className="rounded"
                                 />
                               )}
-                              <input
-                                {...register(`questions.${index}.options.${optIndex}.option_text`)}
-                                className="input flex-1"
-                                placeholder={`Вариант ${optIndex + 1}`}
-                              />
+                              <div className="flex-1 space-y-1">
+                                <input
+                                  {...register(`questions.${index}.options.${optIndex}.option_text`)}
+                                  className="input flex-1"
+                                  placeholder={`Вариант ${optIndex + 1}`}
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => openFormulaModal(`questions.${index}.options.${optIndex}.option_text`)}
+                                  >
+                                    Вставить формулу
+                                  </button>
+                                  <span className="text-xs text-gray-500">Добавится в конец варианта.</span>
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  <MathText text={watch(`questions.${index}.options.${optIndex}.option_text`) || ''} />
+                                </div>
+                              </div>
                             </div>
                           )
                         })}
@@ -777,6 +832,28 @@ export default function CreateTestPage() {
         </div>
       </form>
     </div>
+
+    {formulaTarget && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="bg-white rounded-lg shadow-xl p-4 w-full max-w-xl space-y-4">
+          <h4 className="text-lg font-semibold">Вставить формулу</h4>
+          <p className="text-sm text-gray-600">Введите формулу, она будет добавлена в конец выбранного поля.</p>
+          <MathInput value={formulaValue} onChange={setFormulaValue} placeholder="Например: \\frac{a}{b}" />
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            Предпросмотр: <MathText text={formulaValue} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button className="btn btn-secondary" onClick={() => { setFormulaTarget(null); setFormulaValue('') }}>
+              Отмена
+            </button>
+            <button className="btn btn-primary" onClick={handleInsertFormula} disabled={!formulaValue.trim()}>
+              Вставить
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 

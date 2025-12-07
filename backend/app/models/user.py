@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -13,6 +13,12 @@ class UserRole(str, enum.Enum):
     TEACHER = "teacher"
     STUDENT = "student"
     PARENT = "parent"
+
+
+class StudentGender(str, enum.Enum):
+    """Student gender enumeration"""
+    MALE = "male"
+    FEMALE = "female"
 
 
 class User(Base):
@@ -32,6 +38,11 @@ class User(Base):
     # Additional fields
     avatar_url = Column(String(500), nullable=True)
     phone = Column(String(20), nullable=True)
+    gender = Column(SQLEnum(StudentGender, values_callable=lambda x: [e.value for e in x]), nullable=True)
+    date_of_birth = Column(Date, nullable=True)
+    school_name = Column(String(255), nullable=True)
+    class_number = Column(Integer, nullable=True)
+    class_letter = Column(String(10), nullable=True)
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

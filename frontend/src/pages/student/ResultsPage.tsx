@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { resultService } from '@/services/resultService'
 import { testService } from '@/services/testService'
+import { settingsService } from '@/services/settingsService'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { TestResultStatus } from '@/types'
 
@@ -10,6 +11,11 @@ export default function StudentResultsPage() {
   const { data: results, isLoading } = useQuery({
     queryKey: ['studentResults'],
     queryFn: () => resultService.getResults(),
+  })
+
+  const { data: gradeSettings } = useQuery({
+    queryKey: ['gradeSettings'],
+    queryFn: settingsService.getGradeSettings,
   })
 
   const [testTitles, setTestTitles] = useState<Record<number, string>>({})
@@ -39,6 +45,14 @@ export default function StudentResultsPage() {
 
   if (isLoading) {
     return <div className="text-center py-12">Загрузка результатов...</div>
+  }
+
+  const getGradeLabel = (score: number | undefined) => {
+    if (score === undefined || score === null || !gradeSettings) return '—'
+    if (score >= gradeSettings.grade5_min) return '5'
+    if (score >= gradeSettings.grade4_min) return '4'
+    if (score >= gradeSettings.grade3_min) return '3'
+    return '2'
   }
 
   return (
@@ -81,7 +95,7 @@ export default function StudentResultsPage() {
                   </div>
                   
                   <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
-                    <span>Оценка: {isPending ? '—' : `${result.score.toFixed(1)}%`}</span>
+                    <span>Оценка: {isPending ? '—' : `${result.score.toFixed(1)}%`} · {getGradeLabel(isPending ? undefined : result.score)}</span>
                     <span className="hidden sm:inline">•</span>
                     <span>Попытка {result.attempt_number}</span>
                     <span className="hidden sm:inline">•</span>
@@ -100,7 +114,7 @@ export default function StudentResultsPage() {
                     {isPending ? '—' : `${result.score.toFixed(0)}%`}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {isPending ? 'Итог появится после проверки' : 'Итоговый результат'}
+                    {isPending ? 'Итог появится после проверки' : `Итоговый результат · Оценка: ${getGradeLabel(isPending ? undefined : result.score)}`}
                   </p>
                   {isPending && (
                     <p className="text-xs text-gray-400 mt-1">Предварительно: {result.score.toFixed(1)}%</p>

@@ -47,5 +47,10 @@ export const resultService = {
     })
     return response.data
   },
+
+  async downloadAnswerFile(answerId: number): Promise<Blob> {
+    const response = await api.get(`/results/answers/${answerId}/file`, { responseType: 'blob' })
+    return response.data
+  },
 }
 

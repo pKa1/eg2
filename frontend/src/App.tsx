@@ -23,6 +23,7 @@ import StudentTakeTestPage from './pages/student/TakeTestPage'
 import StudentResultsPage from './pages/student/ResultsPage'
 import ParentDashboardPage from './pages/parent/DashboardPage'
 import AdminUsersPage from './pages/admin/UsersPage'
+import SettingsPage from './pages/admin/SettingsPage'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { UserRole } from './types'
@@ -184,6 +185,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
               <AdminUsersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+              <SettingsPage />
             </ProtectedRoute>
           }
         />

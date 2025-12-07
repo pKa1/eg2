@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -6,6 +6,8 @@ from typing import List, Optional, Any
 from datetime import datetime, timezone
 import re
 import string
+import base64
+from urllib.parse import quote
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -28,7 +30,6 @@ async def _get_redis():
 _SHORT_ANSWER_SPLIT_PATTERN = re.compile(r"[|;\n,]+")
 _MANUAL_GRADING_TYPES = {
     QuestionType.ESSAY,
-    QuestionType.FILE_UPLOAD,
     QuestionType.CODE,
 }
 
@@ -402,6 +403,65 @@ async def submit_test_attempt(
                     if student_sequence == expected_sequence:
                         is_correct = True
                         points = question.points
+        elif question.question_type == QuestionType.FILE_UPLOAD:
+            MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
+
+            def _parse_int(value: Optional[Any]) -> Optional[int]:
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    return None
+
+            file_name = answer_payload.get("file_name")
+            file_type = answer_payload.get("file_type")
+            file_size = _parse_int(answer_payload.get("file_size"))
+            raw_content = answer_payload.get("file_content")
+
+            if not raw_content or not isinstance(raw_content, str):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Для этого вопроса нужно загрузить файл",
+                )
+
+            content_payload = raw_content
+            if content_payload.startswith("data:"):
+                content_payload = content_payload.split(",", 1)[-1]
+
+            approx_bytes = int(len(content_payload) * 3 / 4)
+
+            if file_size is not None and file_size > MAX_FILE_SIZE_BYTES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Размер файла превышает допустимый лимит (20 МБ)",
+                )
+
+            if approx_bytes > int(MAX_FILE_SIZE_BYTES * 1.4):  # base64 overhead (~33%)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Размер файла превышает допустимый лимит (20 МБ)",
+                )
+
+            if not file_name or not isinstance(file_name, str):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Не указано имя файла",
+                )
+
+            if len(file_name) > 255:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Имя файла слишком длинное",
+                )
+
+            if file_type is not None and not isinstance(file_type, str):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Некорректный тип файла",
+                )
+
+            is_correct = None  # file uploads всегда проверяются вручную
+            points = 0.0
+            pending_answers_count += 1
         elif question.question_type == QuestionType.SHORT_ANSWER:
             expected_answers = _get_short_answer_variants(question.correct_answer_text)
             student_answer = _normalize_short_answer(
@@ -470,8 +530,18 @@ async def submit_test_attempt(
         .options(selectinload(TestResult.answers))
         .where(TestResult.id == result.id)
     )
-    
-    return final_result.scalar_one()
+    result_obj = final_result.scalar_one()
+
+    # Do not send raw file payloads back to the client to avoid large responses
+    # (especially for 20 MB uploads) and potential client-side timeouts.
+    response_payload = TestResultResponse.model_validate(result_obj, from_attributes=True)
+    sanitized_answers: list[AnswerResponse] = []
+    for answer in response_payload.answers:
+        data = dict(answer.answer_data) if isinstance(answer.answer_data, dict) else {}
+        data.pop("file_content", None)
+        sanitized_answers.append(answer.model_copy(update={"answer_data": data}))
+
+    return response_payload.model_copy(update={"answers": sanitized_answers})
 
 
 @router.get("/", response_model=List[TestResultListResponse])
@@ -685,4 +755,69 @@ async def grade_answer(
     await db.refresh(answer)
     
     return answer
+
+
+@router.get("/answers/{answer_id}/file")
+async def download_answer_file(
+    answer_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_teacher),
+):
+    """Allow teacher/admin to download uploaded file answer."""
+    answer_result = await db.execute(select(Answer).where(Answer.id == answer_id))
+    answer = answer_result.scalar_one_or_none()
+    if not answer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Answer not found")
+
+    test_result_query = await db.execute(
+        select(TestResult).where(TestResult.id == answer.test_result_id)
+    )
+    test_result = test_result_query.scalar_one_or_none()
+    if not test_result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Test result not found")
+
+    test_query = await db.execute(select(Test).where(Test.id == test_result.test_id))
+    test = test_query.scalar_one_or_none()
+    if not test:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Test not found")
+
+    # Only owner teacher or admin
+    if current_user.role == UserRole.TEACHER and test.creator_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
+    # Validate question type
+    question_query = await db.execute(select(Question).where(Question.id == answer.question_id))
+    question = question_query.scalar_one_or_none()
+    if not question or question.question_type != QuestionType.FILE_UPLOAD:
+        raise HTTPException(
+          status_code=status.HTTP_400_BAD_REQUEST,
+          detail="Answer is not a file upload"
+        )
+
+    ad = answer.answer_data or {}
+    b64_content = ad.get("file_content")
+    file_name = ad.get("file_name") or f"answer_{answer_id}"
+    file_type = ad.get("file_type") or "application/octet-stream"
+
+    if not b64_content:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File content not found")
+
+    try:
+        raw_content = b64_content
+        if isinstance(raw_content, str) and raw_content.startswith("data:") and "," in raw_content:
+            raw_content = raw_content.split(",", 1)[1]
+        binary = base64.b64decode(raw_content)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file content")
+
+    # Build ASCII-safe Content-Disposition. If original has non-ASCII, add RFC5987 filename*
+    ascii_name = "".join(ch if ch.isascii() and ch not in ['"', "\\"] else "_" for ch in file_name) or "file"
+    content_disposition = f'attachment; filename="{ascii_name}"'
+    if file_name != ascii_name:
+        content_disposition += f"; filename*=UTF-8''{quote(file_name)}"
+
+    headers = {
+        "Content-Disposition": content_disposition
+    }
+    return Response(content=binary, media_type=file_type, headers=headers)
 

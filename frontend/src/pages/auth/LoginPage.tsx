@@ -10,7 +10,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { setUser } = useAuthStore()
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginRequest>()
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginRequest & { acceptPolicy: boolean }>()
   const [successMessage, setSuccessMessage] = useState<string>('')
 
   useEffect(() => {
@@ -39,9 +39,9 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         <div className="card space-y-6">
           <div>
-            <h2 className="text-center text-3xl font-extrabold text-gray-900">
-              Вход в платформу тестирования
-            </h2>
+            <div className="flex justify-center mb-4">
+              <img src="/logoEv.svg" alt="Логотип" className="h-12 w-auto" />
+            </div>
           </div>
           
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
@@ -76,6 +76,22 @@ export default function LoginPage() {
                 <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
               )}
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="inline-flex items-start gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                {...register('acceptPolicy', { required: 'Необходимо согласие на обработку данных' })}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span>
+                Согласен(на) с политикой обработки персональных данных (152-ФЗ) и подтверждаю передачу данных для авторизации.
+              </span>
+            </label>
+            {errors.acceptPolicy && (
+              <p className="text-sm text-red-600">{errors.acceptPolicy.message}</p>
+            )}
           </div>
 
           {successMessage && (

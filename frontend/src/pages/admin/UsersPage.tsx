@@ -37,6 +37,15 @@ export default function AdminUsersPage() {
     },
   })
 
+  const verifyAllMutation = useMutation({
+    mutationFn: userService.verifyAllUsers,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+
+  const unverifiedCount = users?.filter((user) => !user.is_verified).length ?? 0
+
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<User> }) => userService.updateUser(id, data),
     onSuccess: () => {
@@ -117,6 +126,19 @@ export default function AdminUsersPage() {
               <span>Только неподтверждённые</span>
             </label>
           </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-gray-500">
+            Неподтверждённых пользователей: <span className="font-semibold text-gray-900">{unverifiedCount}</span>
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary w-full sm:w-auto"
+            disabled={!unverifiedCount || verifyAllMutation.isPending}
+            onClick={() => verifyAllMutation.mutate()}
+          >
+            {verifyAllMutation.isPending ? 'Подтверждение...' : 'Подтвердить всех'}
+          </button>
         </div>
       </div>
 

@@ -26,8 +26,26 @@ export default function ResultDetailPage() {
       resultService.gradeAnswer(answerId, isCorrect, points, comment),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['result', id] })
+      if (result?.test_id) {
+        qc.invalidateQueries({ queryKey: ['testResults', result.test_id.toString()] })
+      }
     },
     onError: (err: any) => alert(err?.response?.data?.detail || 'Не удалось обновить оценку'),
+  })
+
+  const downloadMutation = useMutation({
+    mutationFn: async ({ answerId, fileName }: { answerId: number; fileName?: string }) => {
+      const blob = await resultService.downloadAnswerFile(answerId)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName || `answer_${answerId}`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    },
+    onError: (err: any) => alert(err?.response?.data?.detail || 'Не удалось скачать файл'),
   })
 
   const renderAnswer = (q: any, a: any) => {
@@ -182,6 +200,7 @@ export default function ResultDetailPage() {
           <div className="space-y-6">
             {test.questions.map((q: any, idx: number) => {
               const a = (result.answers || []).find((x: any) => x.question_id === q.id)
+              const type = q.question_type as QuestionType
               return (
                 <div key={q.id} className="border-b border-gray-200 pb-6 last:border-0">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-3">
@@ -212,6 +231,15 @@ export default function ResultDetailPage() {
                             Отклонить
                           </button>
                         </div>
+                      )}
+                      {type === QuestionType.FILE_UPLOAD && (
+                        <button
+                          className="btn btn-secondary w-full sm:w-auto"
+                          onClick={() => downloadMutation.mutate({ answerId: a.id, fileName: a.answer_data?.file_name })}
+                          disabled={downloadMutation.isPending}
+                        >
+                          {downloadMutation.isPending ? 'Скачиваем...' : 'Скачать файл'}
+                        </button>
                       )}
                     </div>
                   )}

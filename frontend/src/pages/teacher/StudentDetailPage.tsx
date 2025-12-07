@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { userService } from '@/services/userService'
 import { resultService } from '@/services/resultService'
-import { ArrowLeft, Mail, Phone, UserCircle, Clock } from 'lucide-react'
-import { TestResultStatus } from '@/types'
+import { ArrowLeft, Mail, Phone, UserCircle, Clock, Calendar, GraduationCap, BookOpen } from 'lucide-react'
+import { StudentGender, TestResultStatus } from '@/types'
 
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -47,6 +47,31 @@ export default function StudentDetailPage() {
   if (isLoading || !student) {
     return <div className="text-center py-12">Загрузка профиля ученика...</div>
   }
+
+  const genderText =
+    student.gender === StudentGender.MALE
+      ? 'Мужской'
+      : student.gender === StudentGender.FEMALE
+        ? 'Женский'
+        : 'не указан'
+  const birthDateText = student.date_of_birth
+    ? new Date(student.date_of_birth).toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      })
+    : 'не указана'
+  const schoolText = student.school_name || 'не указана'
+  const classText = student.class_number
+    ? `${student.class_number}${student.class_letter ? ` «${student.class_letter}»` : ''}`
+    : 'не указан'
+
+  const profileDetails = [
+    { label: 'Пол', value: genderText, Icon: UserCircle },
+    { label: 'Дата рождения', value: birthDateText, Icon: Calendar },
+    { label: 'Школа', value: schoolText, Icon: GraduationCap },
+    { label: 'Класс', value: classText, Icon: BookOpen },
+  ]
 
   return (
     <div className="space-y-6">
@@ -105,6 +130,21 @@ export default function StudentDetailPage() {
               <p className="font-medium">{student.last_login ? new Date(student.last_login).toLocaleString('ru-RU') : 'ещё не входил'}</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="text-xl font-semibold mb-4">Подробная информация</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {profileDetails.map(({ label, value, Icon }) => (
+            <div key={label} className="flex items-center gap-3 text-gray-700">
+              <Icon className="text-gray-500" size={20} />
+              <div>
+                <p className="text-xs text-gray-500">{label}</p>
+                <p className="font-medium">{value}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

@@ -45,6 +45,28 @@ async def register(
                 detail="Имя пользователя уже занято"
             )
     
+    # Validate extended student profile fields
+    if not user_data.phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите телефон одного из родителей"
+        )
+    if not user_data.gender:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Выберите пол ученика"
+        )
+    if not user_data.date_of_birth:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите дату рождения ученика"
+        )
+    if not user_data.school_name or not user_data.class_number or not user_data.class_letter:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Заполните школу и класс ученика"
+        )
+
     # Create new user
     new_user = User(
         email=user_data.email,
@@ -53,6 +75,11 @@ async def register(
         hashed_password=get_password_hash(user_data.password),
         role=user_data.role,
         phone=user_data.phone,
+        gender=user_data.gender,
+        date_of_birth=user_data.date_of_birth,
+        school_name=user_data.school_name,
+        class_number=user_data.class_number,
+        class_letter=user_data.class_letter,
     )
     
     db.add(new_user)

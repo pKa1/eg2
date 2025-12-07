@@ -14,19 +14,35 @@
   }
   
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700;
+    @apply text-white;
+    background-color: #c72627;
+    &:hover {
+      background-color: #b02021;
+    }
   }
   
   .btn-secondary {
-    @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
+    @apply text-white;
+    background-color: #c72627;
+    &:hover {
+      background-color: #b02021;
+    }
   }
   
   .btn-danger {
-    @apply bg-red-600 text-white hover:bg-red-700;
+    @apply text-white;
+    background-color: #c72627;
+    &:hover {
+      background-color: #b02021;
+    }
   }
   
   .input {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent;
+    --tw-ring-color: #c72627;
+    &:focus {
+      border-color: transparent;
+    }
   }
   
   .card {

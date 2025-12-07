@@ -30,6 +30,11 @@ export const userService = {
     await api.delete(`/users/${id}`)
   },
 
+  async verifyAllUsers(): Promise<{ updated: number }> {
+    const response = await api.post<{ updated: number }>('/users/verify-all')
+    return response.data
+  },
+
   async getParentChildren(parentId: number): Promise<User[]> {
     const response = await api.get<User[]>(`/users/parent/${parentId}/children`)
     return response.data

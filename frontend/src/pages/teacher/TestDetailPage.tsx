@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
 import { testService } from '@/services/testService'
-import { ArrowLeft, BarChart, Plus, Edit, Trash2, Save, Users } from 'lucide-react'
+import { ArrowLeft, BarChart, Plus, Edit, Trash2, Save, Users, X } from 'lucide-react'
 import { QuestionType, TestStatus, Test, Question, QuestionOption } from '@/types'
 import { useState, useEffect } from 'react'
 
@@ -146,16 +146,76 @@ export default function TestDetailPage() {
     }))
   }
 
-  const createQuestionMutation = useMutation({
-    mutationFn: () => testService.createQuestion(Number(id), {
-      question_text: qForm.question_text || '',
+  const buildQuestionPayload = (): { error?: string; payload?: any } => {
+    const base = {
+      question_text: (qForm.question_text || '').trim(),
       question_type: qForm.question_type as QuestionType,
       points: qForm.points || 1,
-      order: qForm.order || 0,
-      correct_answer_text: qForm.correct_answer_text || null as any,
-      explanation: qForm.explanation || null as any,
-      options: (qForm.options || []) as any,
-    }),
+      order: qForm.order ?? (test?.questions.length || 0),
+      correct_answer_text: qForm.correct_answer_text || null,
+      explanation: qForm.explanation || null,
+    }
+
+    if (!base.question_text) {
+      return { error: 'Введите текст вопроса' }
+    }
+
+    const type = qForm.question_type as QuestionType
+    const rawOpts = (qForm.options || []) as QuestionOption[]
+
+    if (type === QuestionType.SINGLE_CHOICE || type === QuestionType.MULTIPLE_CHOICE) {
+      const opts = rawOpts
+        .map((o, i) => ({
+          option_text: (o.option_text || '').trim(),
+          is_correct: !!o.is_correct,
+          order: i,
+          matching_pair: o.matching_pair,
+        }))
+        .filter((o) => o.option_text !== '')
+
+      if (opts.length < 2) return { error: 'Добавьте минимум два варианта с текстом' }
+      const correctCount = opts.filter((o) => o.is_correct).length
+      if (type === QuestionType.SINGLE_CHOICE && correctCount !== 1) {
+        return { error: 'Отметьте ровно один правильный вариант' }
+      }
+      if (type === QuestionType.MULTIPLE_CHOICE && correctCount < 1) {
+        return { error: 'Отметьте хотя бы один правильный вариант' }
+      }
+      return { payload: { ...base, options: opts } }
+    }
+
+    if (type === QuestionType.MATCHING) {
+      const opts = rawOpts
+        .map((o, i) => ({
+          option_text: (o.option_text || '').trim(),
+          matching_pair: (o.matching_pair || '').trim(),
+          is_correct: false,
+          order: i,
+        }))
+        .filter((o) => o.option_text && o.matching_pair)
+      if (opts.length < 2) return { error: 'Для соответствия нужно минимум две пары' }
+      return { payload: { ...base, options: opts } }
+    }
+
+    if (type === QuestionType.ORDERING) {
+      const opts = rawOpts
+        .map((o, i) => ({
+          option_text: (o.option_text || '').trim(),
+          matching_pair: undefined,
+          is_correct: false,
+          order: i + 1,
+        }))
+        .filter((o) => o.option_text)
+      if (opts.length < 2) return { error: 'Для упорядочивания нужно минимум два элемента' }
+      return { payload: { ...base, options: opts } }
+    }
+
+    // Types that don't use options
+    return { payload: { ...base, options: [] } }
+  }
+
+  const createQuestionMutation = useMutation({
+    mutationFn: (payload: any) => testService.createQuestion(Number(id), payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['test', id] })
       setCreating(false)
@@ -165,15 +225,7 @@ export default function TestDetailPage() {
   })
 
   const updateQuestionMutation = useMutation({
-    mutationFn: () => testService.updateQuestion(Number(id), editingId!, {
-      question_text: qForm.question_text,
-      question_type: qForm.question_type as QuestionType,
-      points: qForm.points,
-      order: qForm.order,
-      correct_answer_text: qForm.correct_answer_text,
-      explanation: qForm.explanation,
-      options: (qForm.options || []) as any,
-    }),
+    mutationFn: (payload: any) => testService.updateQuestion(Number(id), editingId!, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['test', id] })
       setEditingId(null)
@@ -520,11 +572,33 @@ export default function TestDetailPage() {
 
               <div className="flex items-center gap-2 pt-2">
                 {creating ? (
-                  <button className="btn btn-primary flex items-center gap-2" onClick={() => createQuestionMutation.mutate()} disabled={createQuestionMutation.isPending}>
+                  <button
+                    className="btn btn-primary flex items-center gap-2"
+                    onClick={() => {
+                      const { error, payload } = buildQuestionPayload()
+                      if (error) {
+                        alert(error)
+                        return
+                      }
+                      createQuestionMutation.mutate(payload!)
+                    }}
+                    disabled={createQuestionMutation.isPending}
+                  >
                     <Save size={18} /> {createQuestionMutation.isPending ? 'Сохранение...' : 'Сохранить вопрос'}
                   </button>
                 ) : (
-                  <button className="btn btn-primary flex items-center gap-2" onClick={() => updateQuestionMutation.mutate()} disabled={updateQuestionMutation.isPending}>
+                  <button
+                    className="btn btn-primary flex items-center gap-2"
+                    onClick={() => {
+                      const { error, payload } = buildQuestionPayload()
+                      if (error) {
+                        alert(error)
+                        return
+                      }
+                      updateQuestionMutation.mutate(payload!)
+                    }}
+                    disabled={updateQuestionMutation.isPending}
+                  >
                     <Save size={18} /> {updateQuestionMutation.isPending ? 'Сохранение...' : 'Сохранить изменения'}
                   </button>
                 )}

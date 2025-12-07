@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
-from datetime import datetime
-from app.models.user import UserRole
+from datetime import datetime, date
+from app.models.user import UserRole, StudentGender
 
 
 # Token schemas
@@ -27,6 +27,11 @@ class UserBase(BaseModel):
     full_name: str = Field(..., min_length=1, max_length=255)
     role: UserRole
     phone: Optional[str] = None
+    gender: Optional[StudentGender] = None
+    date_of_birth: Optional[date] = None
+    school_name: Optional[str] = Field(None, max_length=255)
+    class_number: Optional[int] = Field(None, ge=1, le=11)
+    class_letter: Optional[str] = Field(None, max_length=10)
 
 
 class UserCreate(UserBase):
@@ -39,6 +44,11 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, min_length=1, max_length=255)
     role: Optional[UserRole] = None
     phone: Optional[str] = None
+    gender: Optional[StudentGender] = None
+    date_of_birth: Optional[date] = None
+    school_name: Optional[str] = Field(None, max_length=255)
+    class_number: Optional[int] = Field(None, ge=1, le=11)
+    class_letter: Optional[str] = Field(None, max_length=10)
     password: Optional[str] = Field(None, min_length=6, max_length=100)
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None

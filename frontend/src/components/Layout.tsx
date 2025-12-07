@@ -63,7 +63,10 @@ export default function Layout() {
     }
 
     if (user.role === UserRole.ADMIN) {
-      links.push({ to: '/admin/users', label: 'Управление пользователями', icon: Users })
+      links.push(
+        { to: '/admin/users', label: 'Управление пользователями', icon: Users },
+        { to: '/admin/settings', label: 'Настройки', icon: LayoutDashboard },
+      )
     }
 
     return links
@@ -145,8 +148,8 @@ export default function Layout() {
                 </button>
               )}
               <div className="flex-1 flex items-center justify-start min-w-0">
-                <Link to="/" className="text-2xl font-bold text-primary-600 truncate">
-                  Платформа тестирования
+                <Link to="/" className="flex items-center gap-3">
+                  <img src="/logoEv.svg" alt="Логотип" className="h-10 w-auto" />
                 </Link>
               </div>
             </div>

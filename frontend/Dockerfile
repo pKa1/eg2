@@ -11,6 +11,9 @@ RUN npm ci
 # Copy application code
 COPY . .
 
+# Ensure production env file exists (uses template if real file отсутствует)
+RUN [ -f .env.production ] || cp env.production.template .env.production
+
 # Build application
 RUN npm run build
 

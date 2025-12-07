@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { groupService, Group } from '@/services/groupService'
 import { userService } from '@/services/userService'
-import { UserRole } from '@/types'
-import { Plus, Edit, Trash2, X, Users } from 'lucide-react'
+import { Plus, Edit, Trash2, X, Users, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function GroupsPage() {
@@ -13,6 +12,8 @@ export default function GroupsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editing, setEditing] = useState<Group | null>(null)
   const [form, setForm] = useState<{ name: string; description?: string }>({ name: '', description: '' })
+
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (editing) setForm({ name: editing.name, description: editing.description })
@@ -89,6 +90,16 @@ export default function GroupsPage() {
     })
   }, [students, studentSearch])
 
+  const filteredGroups = useMemo(() => {
+    if (!groups) return []
+    const query = search.trim().toLowerCase()
+    if (!query) return groups
+    return groups.filter((group) => {
+      const haystack = `${group.name} ${group.description || ''} ${group.id}`.toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [groups, search])
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -102,13 +113,25 @@ export default function GroupsPage() {
         </button>
       </div>
 
+      <div className="card">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            className="input pl-9"
+            placeholder="Поиск по названию, описанию или ID группы"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
       {isLoading ? (
         <div className="text-center py-12">Загрузка...</div>
-      ) : !groups || groups.length === 0 ? (
+      ) : !filteredGroups || filteredGroups.length === 0 ? (
         <div className="card text-center py-12">Пока нет групп</div>
       ) : (
         <div className="grid gap-4">
-          {groups.map((g) => (
+          {filteredGroups.map((g) => (
             <div key={g.id} className="card">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex-1 min-w-0">

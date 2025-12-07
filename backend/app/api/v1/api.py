@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, users, tests, results, groups, group_analytics
+from app.api.v1.endpoints import auth, users, tests, results, groups, group_analytics, settings
 
 api_router = APIRouter()
 
@@ -10,4 +10,5 @@ api_router.include_router(tests.router, prefix="/tests", tags=["tests"])
 api_router.include_router(results.router, prefix="/results", tags=["results"])
 api_router.include_router(groups.router, prefix="/groups", tags=["groups"])
 api_router.include_router(group_analytics.router, tags=["analytics"])
+api_router.include_router(settings.router, prefix="/settings", tags=["settings"])
 
